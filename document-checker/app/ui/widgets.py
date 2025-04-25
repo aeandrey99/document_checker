@@ -11,6 +11,9 @@ class UIBuilder:
     """
     def __init__(self, app_instance):
         self.app = app_instance
+        
+        # Добавляем переменные для состояния сворачиваемых панелей
+        self.settings_expanded = tk.BooleanVar(value=True)
     
     def create_widgets(self):
         """
@@ -19,20 +22,8 @@ class UIBuilder:
         # Верхняя панель
         self.create_top_panel()
         
-        # Панель дополнительных опций и типов файлов
-        self.create_options_panel()
-        
-        # Панель поиска значений
-        self.create_search_values_panel()
-        
-        # Панель индикации файлов
-        self.create_files_info_panel()
-        
-        # Панель выбора пути для отчета
-        self.create_output_panel()
-        
-        # Информация о текущем запуске
-        self.create_run_info_panel()
+        # Создаем сворачиваемую панель настроек
+        self.create_collapsible_settings_panel()
         
         # Строка статуса и прогресса
         self.create_status_panel()
@@ -68,10 +59,68 @@ class UIBuilder:
         self.app.action_button = ttk.Button(top_frame, text="Начать проверку", command=self.app.start_check)
         self.app.action_button.pack(side=tk.LEFT, padx=(0, 10))
     
-    def create_options_panel(self):
-        """Создает панель с настройками типов файлов и дополнительными опциями"""
-        options_panel = ttk.Frame(self.app.root, padding="5")
-        options_panel.pack(fill=tk.X, padx=10, pady=5)
+    def create_collapsible_settings_panel(self):
+        """Создает сворачиваемую панель настроек"""
+        # Создаем основной фрейм для панели настроек
+        settings_frame = ttk.Frame(self.app.root, padding="5")
+        settings_frame.pack(fill=tk.X, padx=5, pady=2)
+        
+        # Создаем верхнюю строку с кнопкой сворачивания/разворачивания
+        header_frame = ttk.Frame(settings_frame)
+        header_frame.pack(fill=tk.X, pady=2)
+        
+        # Стрелки для индикации состояния
+        expand_arrow = "▼"  # Стрелка вниз (панель развернута)
+        collapse_arrow = "►"  # Стрелка вправо (панель свернута)
+        
+        # Кнопка сворачивания/разворачивания с индикатором
+        self.toggle_button = ttk.Button(
+            header_frame, 
+            text=f"{expand_arrow} Настройки", 
+            command=self.toggle_settings_panel
+        )
+        self.toggle_button.pack(side=tk.LEFT, padx=5)
+        
+        # Создаем контейнер для сворачиваемого содержимого
+        self.settings_container = ttk.Frame(settings_frame)
+        self.settings_container.pack(fill=tk.X, pady=5)
+        
+        # Создаем все панели настроек внутри контейнера
+        self.create_options_panel(self.settings_container)
+        self.create_search_values_panel(self.settings_container)
+        self.create_files_info_panel(self.settings_container)
+        self.create_output_panel(self.settings_container)
+        self.create_run_info_panel(self.settings_container)
+        
+        # Сохраняем информацию для функции сворачивания
+        self.expand_arrow = expand_arrow
+        self.collapse_arrow = collapse_arrow
+    
+    def toggle_settings_panel(self):
+        """Переключает отображение панели настроек"""
+        if self.settings_expanded.get():
+            # Сворачиваем панель
+            self.settings_container.pack_forget()
+            self.toggle_button.config(text=f"{self.collapse_arrow} Настройки")
+            self.settings_expanded.set(False)
+        else:
+            # Разворачиваем панель
+            self.settings_container.pack(fill=tk.X, pady=5)
+            self.toggle_button.config(text=f"{self.expand_arrow} Настройки")
+            self.settings_expanded.set(True)
+    
+    def create_options_panel(self, parent_frame=None):
+        """
+        Создает панель с настройками типов файлов и дополнительными опциями
+        
+        Args:
+            parent_frame: Родительский фрейм. Если None, используется self.app.root
+        """
+        if parent_frame is None:
+            parent_frame = self.app.root
+            
+        options_panel = ttk.Frame(parent_frame, padding="5")
+        options_panel.pack(fill=tk.X, padx=5, pady=2)
         
         # Левая панель - типы файлов
         file_types_frame = ttk.LabelFrame(options_panel, text="Типы файлов для проверки", padding="5")
@@ -110,10 +159,18 @@ class UIBuilder:
                                     textvariable=self.app.max_threads)
         threads_spinbox.pack(side=tk.LEFT)
 
-    def create_search_values_panel(self):
-        """Создает панель для поиска заданных пользователем значений"""
-        search_frame = ttk.LabelFrame(self.app.root, text="Поиск значений в документах", padding="10")
-        search_frame.pack(fill=tk.X, padx=10, pady=5)
+    def create_search_values_panel(self, parent_frame=None):
+        """
+        Создает панель для поиска заданных пользователем значений
+        
+        Args:
+            parent_frame: Родительский фрейм. Если None, используется self.app.root
+        """
+        if parent_frame is None:
+            parent_frame = self.app.root
+            
+        search_frame = ttk.LabelFrame(parent_frame, text="Поиск значений в документах", padding="10")
+        search_frame.pack(fill=tk.X, padx=5, pady=2)
         
         # Чекбокс для включения/отключения поиска значений
         ttk.Checkbutton(search_frame, text="Дополнительный поиск значений", 
@@ -133,10 +190,18 @@ class UIBuilder:
         ttk.Label(search_frame, text=hint_text, 
                  font=("", 8, "italic"), foreground="#666666").pack(anchor=tk.W, pady=2)
     
-    def create_files_info_panel(self):
-        """Создает панель с информацией о количестве файлов"""
-        files_info_frame = ttk.Frame(self.app.root, padding="5")
-        files_info_frame.pack(fill=tk.X, padx=10)
+    def create_files_info_panel(self, parent_frame=None):
+        """
+        Создает панель с информацией о количестве файлов
+        
+        Args:
+            parent_frame: Родительский фрейм. Если None, используется self.app.root
+        """
+        if parent_frame is None:
+            parent_frame = self.app.root
+            
+        files_info_frame = ttk.Frame(parent_frame, padding="5")
+        files_info_frame.pack(fill=tk.X, padx=5, pady=2)
         
         files_count_panel = ttk.Frame(files_info_frame)
         files_count_panel.pack(side=tk.LEFT)
@@ -146,15 +211,19 @@ class UIBuilder:
         
         ttk.Label(files_count_panel, text="    В очереди к проверке: ").pack(side=tk.LEFT)
         ttk.Label(files_count_panel, textvariable=self.app.remaining_files_var, font=("", 8, "bold")).pack(side=tk.LEFT)
-        
-        # Добавляем информационную метку о возможности открытия файлов
-        ttk.Label(files_info_frame, text="Подсказка: дважды щелкните по строке с файлом, чтобы открыть его", 
-                font=("", 8, "italic"), foreground="#666666").pack(side=tk.RIGHT, padx=10)
     
-    def create_output_panel(self):
-        """Создает панель выбора пути для отчета"""
-        output_frame = ttk.Frame(self.app.root, padding="10")
-        output_frame.pack(fill=tk.X)
+    def create_output_panel(self, parent_frame=None):
+        """
+        Создает панель выбора пути для отчета
+        
+        Args:
+            parent_frame: Родительский фрейм. Если None, используется self.app.root
+        """
+        if parent_frame is None:
+            parent_frame = self.app.root
+            
+        output_frame = ttk.Frame(parent_frame, padding="5")
+        output_frame.pack(fill=tk.X, padx=5, pady=2)
         
         ttk.Label(output_frame, text="Путь сохранения отчета:").pack(side=tk.LEFT, padx=(0, 10))
         
@@ -164,10 +233,19 @@ class UIBuilder:
         output_button = ttk.Button(output_frame, text="Выбрать", command=self.app.browse_output_path)
         output_button.pack(side=tk.LEFT)
     
-    def create_run_info_panel(self):
-        """Создает панель с информацией о текущем запуске"""
-        run_frame = ttk.Frame(self.app.root, padding="5")
-        run_frame.pack(fill=tk.X)
+    def create_run_info_panel(self, parent_frame=None):
+        """
+        Создает панель с информацией о текущем запуске
+        
+        Args:
+            parent_frame: Родительский фрейм. Если None, используется self.app.root
+        """
+        if parent_frame is None:
+            parent_frame = self.app.root
+            
+        run_frame = ttk.Frame(parent_frame, padding="5")
+        run_frame.pack(fill=tk.X, padx=5, pady=2)
+        
         ttk.Label(run_frame, text="Текущий номер запуска: ", 
                 font=("", 8)).pack(side=tk.LEFT, padx=10)
         self.app.run_id_label = ttk.Label(run_frame, text=str(self.app.report_manager.current_run_id), 
@@ -197,6 +275,12 @@ class UIBuilder:
             mode='determinate'
         )
         self.app.progress_bar.pack(fill=tk.X)
+        
+        # Добавляем информационную метку о возможности открытия файлов
+        hint_frame = ttk.Frame(self.app.root, padding="2")
+        hint_frame.pack(fill=tk.X)
+        ttk.Label(hint_frame, text="Подсказка: дважды щелкните по строке с файлом, чтобы открыть его", 
+                font=("", 8, "italic"), foreground="#666666").pack(side=tk.RIGHT, padx=10)
     
     def create_results_table(self):
         """Создает таблицу результатов"""
