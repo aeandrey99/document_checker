@@ -22,6 +22,9 @@ class UIBuilder:
         # Панель дополнительных опций и типов файлов
         self.create_options_panel()
         
+        # Панель поиска значений
+        self.create_search_values_panel()
+        
         # Панель индикации файлов
         self.create_files_info_panel()
         
@@ -106,6 +109,29 @@ class UIBuilder:
         threads_spinbox = ttk.Spinbox(threads_frame, from_=1, to=32, width=5, 
                                     textvariable=self.app.max_threads)
         threads_spinbox.pack(side=tk.LEFT)
+
+    def create_search_values_panel(self):
+        """Создает панель для поиска заданных пользователем значений"""
+        search_frame = ttk.LabelFrame(self.app.root, text="Поиск значений в документах", padding="10")
+        search_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Чекбокс для включения/отключения поиска значений
+        ttk.Checkbutton(search_frame, text="Дополнительный поиск значений", 
+                        variable=self.app.enable_value_search).pack(anchor=tk.W)
+        
+        # Поле для ввода значений
+        values_frame = ttk.Frame(search_frame)
+        values_frame.pack(fill=tk.X, pady=5)
+        
+        values_entry = ttk.Entry(values_frame, textvariable=self.app.search_values, width=80)
+        values_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Подсказка с примером
+        hint_text = ("Укажите значения для поиска в формате: \"2024\", \"Привет_\", \"Предоставлено \", ...\n"
+                     "Значения должны быть заключены в двойные кавычки и разделены запятыми. "
+                     "Пробелы и другие символы учитываются.")
+        ttk.Label(search_frame, text=hint_text, 
+                 font=("", 8, "italic"), foreground="#666666").pack(anchor=tk.W, pady=2)
     
     def create_files_info_panel(self):
         """Создает панель с информацией о количестве файлов"""
@@ -123,7 +149,7 @@ class UIBuilder:
         
         # Добавляем информационную метку о возможности открытия файлов
         ttk.Label(files_info_frame, text="Подсказка: дважды щелкните по строке с файлом, чтобы открыть его", 
-                font=("", 8, "italic")).pack(side=tk.RIGHT, padx=10)
+                font=("", 8, "italic"), foreground="#666666").pack(side=tk.RIGHT, padx=10)
     
     def create_output_panel(self):
         """Создает панель выбора пути для отчета"""

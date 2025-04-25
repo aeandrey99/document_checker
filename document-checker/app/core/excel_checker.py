@@ -6,8 +6,16 @@ from zipfile import ZipFile
 import win32com.client
 import pythoncom
 
-def check_excel_file(file_path, file_name):
-    """Проверка Excel файла с оптимизацией для крупных файлов"""
+def check_excel_file(file_path, file_name, enable_value_search=False, search_values=None):
+    """
+    Проверка Excel файла с оптимизацией для крупных файлов
+    
+    Args:
+        file_path (str): Путь к файлу
+        file_name (str): Имя файла
+        enable_value_search (bool): Флаг включения поиска заданных значений
+        search_values (list): Список значений для поиска
+    """
     try:
         issues = []
         
@@ -79,27 +87,30 @@ def check_excel_file(file_path, file_name):
                             except:
                                 pass
                 
-                    # Проверка на желтые ячейки - только для первых 1000 ячеек каждого листа
+                    # Проверка на желтые ячейки - проверяем сектор 500 столбцов на 1500 строк
                     if not "желтые ячейки" in issues:
                         for sheet_name in wb.sheetnames:
                             try:
                                 sheet = wb[sheet_name]
-                                cell_count = 0
-                                max_cells = 1000  # Ограничиваем количество проверяемых ячеек
+                                max_rows = min(1500, sheet.max_row)  # Максимум 1500 строк
+                                max_cols = min(500, sheet.max_column)  # Максимум 500 столбцов
                                 
-                                for row in sheet.iter_rows():
-                                    for cell in row:
-                                        cell_count += 1
-                                        if cell_count > max_cells:
-                                            break
-                                            
-                                        if cell.fill and hasattr(cell.fill, 'start_color') and hasattr(cell.fill.start_color, 'index'):
-                                            fill_color = cell.fill.start_color.index
-                                            if isinstance(fill_color, str) and ('FFFF' in fill_color or 'FFFF00' in fill_color or 'FFF0' in fill_color):
-                                                issues.append("желтые ячейки")
-                                                break
-                                    if cell_count > max_cells or "желтые ячейки" in issues:
+                                for row_idx in range(1, max_rows + 1):
+                                    for col_idx in range(1, max_cols + 1):
+                                        try:
+                                            cell = sheet.cell(row=row_idx, column=col_idx)
+                                            if cell.fill and hasattr(cell.fill, 'start_color') and hasattr(cell.fill.start_color, 'index'):
+                                                fill_color = cell.fill.start_color.index
+                                                if isinstance(fill_color, str) and ('FFFF' in fill_color or 'FFFF00' in fill_color or 'FFF0' in fill_color):
+                                                    issues.append("желтые ячейки")
+                                                    break
+                                        except Exception as cell_ex:
+                                            # Пропускаем проблемные ячейки
+                                            continue
+                                    
+                                    if "желтые ячейки" in issues:
                                         break
+                                        
                                 if "желтые ячейки" in issues:
                                     break
                             except Exception:
@@ -111,20 +122,23 @@ def check_excel_file(file_path, file_name):
                         for sheet_name in wb.sheetnames:
                             try:
                                 sheet = wb[sheet_name]
-                                cell_count = 0
-                                max_cells = 1000  # Ограничиваем количество проверяемых ячеек
+                                # Проверяем больший диапазон ячеек
+                                max_rows = min(1000, sheet.max_row)  # Проверяем до 1000 строк
+                                max_cols = min(100, sheet.max_column)  # и до 100 столбцов для комментариев
                                 
-                                for row in sheet.iter_rows():
-                                    for cell in row:
-                                        cell_count += 1
-                                        if cell_count > max_cells:
-                                            break
+                                for row_idx in range(1, max_rows + 1):
+                                    for col_idx in range(1, max_cols + 1):
+                                        try:
+                                            cell = sheet.cell(row=row_idx, column=col_idx)
+                                            if cell.comment is not None:
+                                                issues.append("комментарии")
+                                                break
+                                        except Exception:
+                                            continue
                                             
-                                        if cell.comment is not None:
-                                            issues.append("комментарии")
-                                            break
-                                    if cell_count > max_cells or "комментарии" in issues:
+                                    if "комментарии" in issues:
                                         break
+                                        
                                 if "комментарии" in issues:
                                     break
                             except Exception:
@@ -178,24 +192,51 @@ def check_excel_file(file_path, file_name):
                             except:
                                 pass
                         
-                        # Проверка на желтые ячейки - только для ограниченного диапазона
+                        # Проверка на желтые ячейки - расширяем область проверки
                         if not "желтые ячейки" in issues:
                             try:
                                 used_range = sheet.UsedRange
                                 if used_range:
-                                    # Определяем размеры используемого диапазона
-                                    rows_count = min(100, used_range.Rows.Count)  # Проверяем максимум 100 строк
-                                    cols_count = min(20, used_range.Columns.Count)  # Проверяем максимум 20 столбцов
+                                    # Определяем размеры используемого диапазона с увеличенными пределами
+                                    rows_count = min(1500, used_range.Rows.Count)  # Проверяем максимум 1500 строк
+                                    cols_count = min(500, used_range.Columns.Count)  # Проверяем максимум 500 столбцов
                                     
-                                    for row in range(1, rows_count + 1):
-                                        for col in range(1, cols_count + 1):
-                                            try:
-                                                cell = sheet.Cells(row, col)
-                                                if cell and cell.Interior and cell.Interior.ColorIndex == 6:  # 6 - желтый в Excel
-                                                    issues.append("желтые ячейки")
-                                                    break
-                                            except:
-                                                pass
+                                    # Оптимизация: проверяем сначала небольшой сектор, а затем расширяем
+                                    for check_level in range(1, 4):  # 3 уровня проверки с увеличением области
+                                        check_rows = min(rows_count, check_level * 500)  # Постепенно увеличиваем до макс. 1500 строк
+                                        check_cols = min(cols_count, check_level * 150)  # Постепенно увеличиваем до макс. 500 столбцов
+                                        
+                                        for row in range(1, check_rows + 1):
+                                            for col in range(1, check_cols + 1):
+                                                try:
+                                                    cell = sheet.Cells(row, col)
+                                                    if cell and cell.Interior:
+                                                        # Проверка на желтый цвет через ColorIndex (6 - желтый в Excel)
+                                                        if cell.Interior.ColorIndex == 6:
+                                                            issues.append("желтые ячейки")
+                                                            break
+                                                        
+                                                        # Дополнительная проверка через RGB (для нестандартных цветов)
+                                                        try:
+                                                            cell_color = cell.Interior.Color
+                                                            if cell_color:
+                                                                # Извлекаем RGB компоненты
+                                                                r = cell_color % 256
+                                                                g = (cell_color // 256) % 256
+                                                                b = (cell_color // 65536) % 256
+                                                                
+                                                                # Проверяем похожесть на желтый (высокие R и G, низкий B)
+                                                                if r > 200 and g > 200 and b < 100:
+                                                                    issues.append("желтые ячейки")
+                                                                    break
+                                                        except:
+                                                            pass
+                                                except:
+                                                    pass
+                                                    
+                                            if "желтые ячейки" in issues:
+                                                break
+                                                
                                         if "желтые ячейки" in issues:
                                             break
                             except:
@@ -221,6 +262,98 @@ def check_excel_file(file_path, file_name):
                 if excel_app is not None:
                     excel_app.Quit()
         
+        # Поиск заданных пользователем значений
+        found_values = []
+        if enable_value_search and search_values and isinstance(search_values, list) and len(search_values) > 0:
+            try:
+                # Для XLSX и XLSM
+                if file_path.lower().endswith(('.xlsx', '.xlsm')):
+                    # Если мы еще не загрузили workbook ранее, загружаем его сейчас
+                    if wb is None:
+                        try:
+                            wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+                        except Exception as e:
+                            print(f"Не удалось загрузить файл для поиска значений: {str(e)}")
+                    
+                    if wb is not None:
+                        # Проверяем каждый лист
+                        for sheet_name in wb.sheetnames:
+                            if len(found_values) == len(search_values):
+                                break  # Найдены все значения, прекращаем поиск
+                                
+                            sheet = wb[sheet_name]
+                            max_rows = min(2000, sheet.max_row)  # Ограничиваем область поиска
+                            max_cols = min(500, sheet.max_column)
+                            
+                            for row_idx in range(1, max_rows + 1):
+                                for col_idx in range(1, max_cols + 1):
+                                    try:
+                                        cell = sheet.cell(row=row_idx, column=col_idx)
+                                        if cell.value:
+                                            cell_str_value = str(cell.value)
+                                            # Проверяем каждое искомое значение
+                                            for value in search_values:
+                                                if value in cell_str_value and value not in found_values:
+                                                    found_values.append(value)
+                                    except Exception:
+                                        continue
+                                        
+                                if len(found_values) == len(search_values):
+                                    break  # Найдены все значения, прекращаем поиск
+                
+                # Для XLS файлов используем win32com
+                elif file_path.lower().endswith('.xls') and not found_values:
+                    # Если не все значения найдены и мы имеем дело с XLS
+                    pythoncom.CoInitialize()
+                    excel_app = None
+                    try:
+                        excel_app = win32com.client.Dispatch("Excel.Application")
+                        excel_app.Visible = False
+                        excel_app.DisplayAlerts = False
+                        excel_app.ScreenUpdating = False
+                        
+                        wb_search = None
+                        try:
+                            wb_search = excel_app.Workbooks.Open(file_path, ReadOnly=True, UpdateLinks=False)
+                            
+                            for i in range(1, wb_search.Sheets.Count + 1):
+                                if len(found_values) == len(search_values):
+                                    break  # Найдены все значения, прекращаем поиск
+                                    
+                                sheet = wb_search.Sheets(i)
+                                used_range = sheet.UsedRange
+                                
+                                if used_range:
+                                    rows_count = min(2000, used_range.Rows.Count)
+                                    cols_count = min(500, used_range.Columns.Count)
+                                    
+                                    for row in range(1, rows_count + 1):
+                                        for col in range(1, cols_count + 1):
+                                            try:
+                                                cell = sheet.Cells(row, col)
+                                                if cell.Value:
+                                                    cell_str_value = str(cell.Value)
+                                                    for value in search_values:
+                                                        if value in cell_str_value and value not in found_values:
+                                                            found_values.append(value)
+                                            except:
+                                                pass
+                                                
+                                        if len(found_values) == len(search_values):
+                                            break  # Найдены все значения
+                        finally:
+                            if wb_search:
+                                wb_search.Close(False)
+                    finally:
+                        if excel_app:
+                            excel_app.Quit()
+            except Exception as e:
+                print(f"Ошибка при поиске значений: {str(e)}")
+                
+            # Если найдены значения, добавляем их в список проблем
+            if found_values:
+                issues.append(f"найдены заданные значения: {', '.join(found_values)}")
+                
         # Формирование результата
         if issues:
             result = "Не пройден"

@@ -90,7 +90,11 @@ class DocumentChecker:
         
         # Результаты проверки
         self.results = []
-    
+        
+        # Переменные для поиска значений в документах
+        self.enable_value_search = tk.BooleanVar(value=False)  # По умолчанию отключено
+        self.search_values = tk.StringVar(value='"2024", "Предоставлено ", "Утверждено"')  # Примерные значения для поиска
+        
     def setup_context_menu(self):
         """Инициализирует контекстное меню"""
         self.ui_builder.setup_context_menu()
@@ -701,7 +705,7 @@ class DocumentChecker:
         Args:
             file_path (str): Путь к файлу
             file_name (str): Имя файла
-            
+                
         Returns:
             dict: Результат проверки
         """
@@ -734,11 +738,34 @@ class DocumentChecker:
                 'comment': f"Файл слишком большой ({file_size_str}). Пропущен согласно настройкам."
             }
         
+        # Обработка параметров поиска значений
+        enable_search = self.enable_value_search.get()
+        search_values = []
+        
+        if enable_search:
+            try:
+                # Парсим значения из строки, разделенные запятыми и в кавычках
+                values_str = self.search_values.get().strip()
+                if values_str:
+                    import re
+                    # Ищем строки в двойных кавычках
+                    pattern = r'"([^"]*)"'
+                    matches = re.findall(pattern, values_str)
+                    
+                    # Добавляем найденные значения в список
+                    if matches:
+                        search_values = matches
+                    else:
+                        # Если не удалось найти строки в кавычках, используем запятую как разделитель
+                        search_values = [val.strip() for val in values_str.split(',') if val.strip()]
+            except Exception as e:
+                print(f"Ошибка при обработке значений для поиска: {str(e)}")
+        
         # Проверяем файл в соответствии с его типом
         if file_type == "Word":
-            return check_word_file(file_path, file_name)
+            return check_word_file(file_path, file_name, enable_search, search_values)
         elif file_type == "Excel":
-            return check_excel_file(file_path, file_name)
+            return check_excel_file(file_path, file_name, enable_search, search_values)
         else:
             return {
                 'file_name': file_name,

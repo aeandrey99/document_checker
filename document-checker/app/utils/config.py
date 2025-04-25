@@ -34,7 +34,11 @@ class ConfigManager:
                 "check_xls": self.app.check_xls.get(),
                 "check_xlsm": self.app.check_xlsm.get(),
                 "output_path": self.app.output_path.get(),
-                "last_selected_path": self.app.selected_path.get()
+                "last_selected_path": self.app.selected_path.get(),
+                "enable_value_search": self.app.enable_value_search.get(),
+                "search_values": self.app.search_values.get(),
+                "max_threads": self.app.max_threads.get(),
+                "skip_large_files": self.app.skip_large_files.get()
             }
             
             with open(self.settings_path, 'w', encoding='utf-8') as f:
@@ -74,6 +78,16 @@ class ConfigManager:
                 self.app.output_path.set(settings["output_path"])
             if "last_selected_path" in settings:
                 self.app.selected_path.set(settings["last_selected_path"])
+            if "max_threads" in settings:
+                self.app.max_threads.set(settings["max_threads"])
+            if "skip_large_files" in settings:
+                self.app.skip_large_files.set(settings["skip_large_files"])
+            
+            # Загружаем настройки поиска значений
+            if "enable_value_search" in settings:
+                self.app.enable_value_search.set(settings["enable_value_search"])
+            if "search_values" in settings:
+                self.app.search_values.set(settings["search_values"])
             
             return True
                 
