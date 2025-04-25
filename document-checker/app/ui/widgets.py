@@ -41,7 +41,7 @@ class UIBuilder:
         
         # Создаем внутренний фрейм для уменьшения отступов
         self.content_inner_frame = ttk.Frame(self.hideable_content_container)
-        self.content_inner_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
+        self.content_inner_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=0)  # Убираем pady
         
         # Добавляем все элементы, которые должны скрываться/показываться вместе
         self.create_status_panel(self.content_inner_frame)
@@ -105,29 +105,27 @@ class UIBuilder:
         self.app.action_button.pack(side=tk.LEFT, padx=(0, 10))
     
     def create_settings_header_panel(self):
-        """
-        Создает панель с кнопкой настроек и информацией о номере запуска
-        """
-        header_frame = ttk.Frame(self.app.root, padding="5")
-        header_frame.pack(fill=tk.X, padx=5, pady=2)
+        header_frame = ttk.Frame(self.app.root, padding=0)
+        header_frame.pack(fill=tk.X, padx=5, pady=0)
         
-        # Стрелки для индикации состояния
-        expand_arrow = "▼"  # Стрелка вниз (панель развернута)
-        collapse_arrow = "►"  # Стрелка вправо (панель свернута)
+        expand_arrow = "▼"
+        collapse_arrow = "►"
         
-        # Кнопка сворачивания/разворачивания с индикатором
+        # Создаём стиль с минимальными отступами
+        style = ttk.Style()
+        style.configure("Custom.TButton", padding=0)  # Убираем внутренние отступы кнопки
+        
         self.toggle_button = ttk.Button(
             header_frame, 
             text=f"{expand_arrow} Настройки", 
-            command=self.toggle_settings_panel
+            command=self.toggle_settings_panel,
+            style="Custom.TButton"  # Применяем стиль
         )
-        self.toggle_button.pack(side=tk.LEFT, padx=5)
+        self.toggle_button.pack(side=tk.LEFT, padx=5, pady=0)  # Добавляем pady=0 для явности
         
-        # Сохраняем информацию для функции сворачивания
         self.expand_arrow = expand_arrow
         self.collapse_arrow = collapse_arrow
         
-        # Информация о текущем запуске (справа)
         info_frame = ttk.Frame(header_frame)
         info_frame.pack(side=tk.RIGHT, padx=10)
         
@@ -275,23 +273,17 @@ class UIBuilder:
         output_button.pack(side=tk.LEFT)
     
     def create_status_panel(self, parent_frame=None):
-        """
-        Создает панель статуса и текущего файла
-        
-        Args:
-            parent_frame: Родительский фрейм. Если None, используется self.app.root
-        """
         if parent_frame is None:
             parent_frame = self.app.root
             
-        status_frame = ttk.Frame(parent_frame, padding="10")
-        status_frame.pack(fill=tk.X)
+        status_frame = ttk.Frame(parent_frame, padding=0)
+        status_frame.pack(fill=tk.X, pady=0)
         
-        ttk.Label(status_frame, text="Статус:").pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Label(status_frame, textvariable=self.app.status_text).pack(side=tk.LEFT, padx=(0, 20))
+        ttk.Label(status_frame, text="Статус:").pack(side=tk.LEFT, padx=(0, 5), pady=0)
+        ttk.Label(status_frame, textvariable=self.app.status_text).pack(side=tk.LEFT, padx=(0, 20), pady=0)
         
-        ttk.Label(status_frame, text="Текущий файл:").pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Label(status_frame, textvariable=self.app.current_file).pack(side=tk.LEFT)
+        ttk.Label(status_frame, text="Текущий файл:").pack(side=tk.LEFT, padx=(0, 5), pady=0)
+        ttk.Label(status_frame, textvariable=self.app.current_file).pack(side=tk.LEFT, pady=0)
     
     def create_progress_bar(self, parent_frame=None):
         """
