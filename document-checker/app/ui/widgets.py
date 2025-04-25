@@ -1,4 +1,250 @@
-# Создание и настройка элементов интерфейса
-class Widgets:
-    def __init__(self):
-        pass
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+import os
+import datetime
+
+class UIBuilder:
+    """
+    Класс для создания и настройки элементов интерфейса приложения.
+    """
+    def __init__(self, app_instance):
+        self.app = app_instance
+    
+    def create_widgets(self):
+        """
+        Создает все элементы интерфейса приложения
+        """
+        # Верхняя панель
+        self.create_top_panel()
+        
+        # Панель дополнительных опций и типов файлов
+        self.create_options_panel()
+        
+        # Панель индикации файлов
+        self.create_files_info_panel()
+        
+        # Панель выбора пути для отчета
+        self.create_output_panel()
+        
+        # Информация о текущем запуске
+        self.create_run_info_panel()
+        
+        # Строка статуса и прогресса
+        self.create_status_panel()
+        
+        # Прогресс бар
+        self.create_progress_bar()
+        
+        # Таблица результатов
+        self.create_results_table()
+        
+        # Нижняя панель с информацией
+        self.create_bottom_panel()
+        
+        # Привязываем обработчик событий ко всему дереву один раз
+        self.app.results_tree.bind('<Double-1>', self.app.on_item_double_click)
+        
+        # Настраиваем обработку изменения размера окна
+        self.app.root.bind("<Configure>", self.on_window_resize)
+    
+    def create_top_panel(self):
+        """Создает верхнюю панель с выбором пути и кнопкой запуска"""
+        top_frame = ttk.Frame(self.app.root, padding="10")
+        top_frame.pack(fill=tk.X)
+        
+        ttk.Label(top_frame, text="Выберите папку или файл:").pack(side=tk.LEFT, padx=(0, 10))
+        
+        path_entry = ttk.Entry(top_frame, textvariable=self.app.selected_path, width=50)
+        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        browse_button = ttk.Button(top_frame, text="Обзор", command=self.app.browse_path)
+        browse_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.app.action_button = ttk.Button(top_frame, text="Начать проверку", command=self.app.start_check)
+        self.app.action_button.pack(side=tk.LEFT, padx=(0, 10))
+    
+    def create_options_panel(self):
+        """Создает панель с настройками типов файлов и дополнительными опциями"""
+        options_panel = ttk.Frame(self.app.root, padding="5")
+        options_panel.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Левая панель - типы файлов
+        file_types_frame = ttk.LabelFrame(options_panel, text="Типы файлов для проверки", padding="5")
+        file_types_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        
+        # Располагаем типы файлов в строку вместо столбцов
+        word_frame = ttk.Frame(file_types_frame)
+        word_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(word_frame, text="Word:", width=8).pack(side=tk.LEFT)
+        ttk.Checkbutton(word_frame, text=".docx", variable=self.app.check_docx).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(word_frame, text=".doc", variable=self.app.check_doc).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(word_frame, text=".docm", variable=self.app.check_docm).pack(side=tk.LEFT, padx=5)
+        
+        excel_frame = ttk.Frame(file_types_frame)
+        excel_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(excel_frame, text="Excel:", width=8).pack(side=tk.LEFT)
+        ttk.Checkbutton(excel_frame, text=".xlsx", variable=self.app.check_xlsx).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(excel_frame, text=".xls", variable=self.app.check_xls).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(excel_frame, text=".xlsm", variable=self.app.check_xlsm).pack(side=tk.LEFT, padx=5)
+        
+        # Правая панель - дополнительные опции
+        add_options_frame = ttk.LabelFrame(options_panel, text="Дополнительные опции", padding="5")
+        add_options_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        # Опция пропуска больших файлов
+        ttk.Checkbutton(add_options_frame, text="Пропускать файлы более 100 МБ", 
+                        variable=self.app.skip_large_files).pack(anchor=tk.W)
+        
+        # Количество потоков
+        threads_frame = ttk.Frame(add_options_frame)
+        threads_frame.pack(anchor=tk.W, pady=2)
+        
+        ttk.Label(threads_frame, text="Макс. количество потоков: ").pack(side=tk.LEFT)
+        
+        threads_spinbox = ttk.Spinbox(threads_frame, from_=1, to=32, width=5, 
+                                    textvariable=self.app.max_threads)
+        threads_spinbox.pack(side=tk.LEFT)
+    
+    def create_files_info_panel(self):
+        """Создает панель с информацией о количестве файлов"""
+        files_info_frame = ttk.Frame(self.app.root, padding="5")
+        files_info_frame.pack(fill=tk.X, padx=10)
+        
+        files_count_panel = ttk.Frame(files_info_frame)
+        files_count_panel.pack(side=tk.LEFT)
+        
+        ttk.Label(files_count_panel, text="Всего файлов для проверки: ").pack(side=tk.LEFT)
+        ttk.Label(files_count_panel, textvariable=self.app.total_files_var, font=("", 8, "bold")).pack(side=tk.LEFT)
+        
+        ttk.Label(files_count_panel, text="    В очереди к проверке: ").pack(side=tk.LEFT)
+        ttk.Label(files_count_panel, textvariable=self.app.remaining_files_var, font=("", 8, "bold")).pack(side=tk.LEFT)
+        
+        # Добавляем информационную метку о возможности открытия файлов
+        ttk.Label(files_info_frame, text="Подсказка: дважды щелкните по строке с файлом, чтобы открыть его", 
+                font=("", 8, "italic")).pack(side=tk.RIGHT, padx=10)
+    
+    def create_output_panel(self):
+        """Создает панель выбора пути для отчета"""
+        output_frame = ttk.Frame(self.app.root, padding="10")
+        output_frame.pack(fill=tk.X)
+        
+        ttk.Label(output_frame, text="Путь сохранения отчета:").pack(side=tk.LEFT, padx=(0, 10))
+        
+        output_entry = ttk.Entry(output_frame, textvariable=self.app.output_path, width=50)
+        output_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        output_button = ttk.Button(output_frame, text="Выбрать", command=self.app.browse_output_path)
+        output_button.pack(side=tk.LEFT)
+    
+    def create_run_info_panel(self):
+        """Создает панель с информацией о текущем запуске"""
+        run_frame = ttk.Frame(self.app.root, padding="5")
+        run_frame.pack(fill=tk.X)
+        ttk.Label(run_frame, text="Текущий номер запуска: ", 
+                font=("", 8)).pack(side=tk.LEFT, padx=10)
+        self.app.run_id_label = ttk.Label(run_frame, text=str(self.app.report_manager.current_run_id), 
+                font=("", 8, "bold"))
+        self.app.run_id_label.pack(side=tk.LEFT)
+    
+    def create_status_panel(self):
+        """Создает панель статуса и текущего файла"""
+        status_frame = ttk.Frame(self.app.root, padding="10")
+        status_frame.pack(fill=tk.X)
+        
+        ttk.Label(status_frame, text="Статус:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(status_frame, textvariable=self.app.status_text).pack(side=tk.LEFT, padx=(0, 20))
+        
+        ttk.Label(status_frame, text="Текущий файл:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(status_frame, textvariable=self.app.current_file).pack(side=tk.LEFT)
+    
+    def create_progress_bar(self):
+        """Создает прогресс-бар"""
+        progress_frame = ttk.Frame(self.app.root, padding="10")
+        progress_frame.pack(fill=tk.X)
+        
+        self.app.progress_bar = ttk.Progressbar(
+            progress_frame, 
+            variable=self.app.progress_value,
+            length=100,
+            mode='determinate'
+        )
+        self.app.progress_bar.pack(fill=tk.X)
+    
+    def create_results_table(self):
+        """Создает таблицу результатов"""
+        results_frame = ttk.Frame(self.app.root, padding="10")
+        results_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("№", "Имя файла", "Тип файла", "Путь к файлу", "Результат", "Комментарий")
+        self.app.results_tree = ttk.Treeview(results_frame, columns=columns, show='headings')
+        
+        # Настройка заголовков
+        for col in columns:
+            self.app.results_tree.heading(col, text=col)
+        
+        # Настройка ширины колонок
+        self.app.results_tree.column("№", width=40, anchor=tk.CENTER)
+        self.app.results_tree.column("Имя файла", width=150)
+        self.app.results_tree.column("Тип файла", width=80, anchor=tk.CENTER)
+        self.app.results_tree.column("Путь к файлу", width=200)
+        self.app.results_tree.column("Результат", width=100, anchor=tk.CENTER)
+        self.app.results_tree.column("Комментарий", width=300)
+        
+        # Добавление полосы прокрутки
+        scrollbar = ttk.Scrollbar(results_frame, orient=tk.VERTICAL, command=self.app.results_tree.yview)
+        self.app.results_tree.configure(yscroll=scrollbar.set)
+        
+        # Размещение таблицы и полосы прокрутки
+        self.app.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Установка тегов для цветной маркировки
+        self.app.results_tree.tag_configure('passed', background='#C8E6C9')  # светло-зеленый
+        self.app.results_tree.tag_configure('failed', background='#FFCDD2')  # светло-красный
+    
+    def create_bottom_panel(self):
+        """Создает нижнюю панель с информацией"""
+        bottom_frame = ttk.Frame(self.app.root, padding="5")
+        bottom_frame.pack(fill=tk.X)
+        
+        # Текущие дата и время
+        current_datetime = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+        ttk.Label(bottom_frame, text=f"Текущие дата и время: {current_datetime}", 
+                font=("", 8, "italic"), foreground="#666666").pack(side=tk.RIGHT, padx=10)
+        
+        # Приписка о разработчике
+        ttk.Label(bottom_frame, text="@Собственная разработка ИТРА", 
+                font=("", 8, "italic"), foreground="#666666").pack(side=tk.LEFT, padx=10)
+    
+    def on_window_resize(self, event):
+        """Обрабатывает изменение размера окна"""
+        # Только если изменился размер основного окна, а не виджетов внутри него
+        if event.widget == self.app.root:
+            # Подгоняем ширину столбцов таблицы под текущий размер окна
+            if hasattr(self.app, 'results_tree'):
+                # Получаем текущую ширину окна
+                window_width = event.width
+                
+                # Подгоняем ширину последнего столбца (комментария) под оставшееся пространство
+                fixed_columns_width = 40 + 150 + 80 + 200 + 100  # Сумма фиксированных ширин первых 5 столбцов
+                scrollbar_width = 20  # Примерная ширина полосы прокрутки
+                padding = 40  # Дополнительные отступы
+                
+                # Вычисляем доступную ширину для последнего столбца
+                available_width = max(200, window_width - fixed_columns_width - scrollbar_width - padding)
+                
+                # Устанавливаем новую ширину для столбца с комментариями
+                self.app.results_tree.column("Комментарий", width=available_width)
+    
+    def setup_context_menu(self):
+        """Настраивает контекстное меню для таблицы результатов"""
+        self.app.context_menu = tk.Menu(self.app.root, tearoff=0)
+        self.app.context_menu.add_command(label="Открыть файл", command=self.app.open_selected_file)
+        self.app.context_menu.add_command(label="Открыть директорию файла", command=self.app.open_file_directory)
+        self.app.context_menu.add_separator()
+        self.app.context_menu.add_command(label="Копировать путь", command=self.app.copy_file_path)
+        
+        # Привязываем появление меню к правому клику
+        self.app.results_tree.bind("<Button-3>", self.app.show_context_menu)
