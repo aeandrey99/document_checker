@@ -15,34 +15,45 @@ class UIBuilder:
         # Добавляем переменные для состояния сворачиваемых панелей
         self.settings_expanded = tk.BooleanVar(value=True)
     
+    # ВАЖНО: Логика отображения панелей изменена
+    # Когда settings_expanded = True:
+    #   - Панель настроек ВИДИМА
+    #   - Основное содержимое (статус, прогресс-бар, таблица, нижняя панель) СКРЫТО
+    # Когда settings_expanded = False:
+    #   - Панель настроек СКРЫТА
+    #   - Основное содержимое (статус, прогресс-бар, таблица, нижняя панель) ВИДИМО
+
     def create_widgets(self):
         """
         Создает все элементы интерфейса приложения
         """
-        # Верхняя панель
+        # Верхняя панель (всегда видима)
         self.create_top_panel()
         
-        # Панель с кнопкой настроек и номером запуска (на одном уровне)
+        # Панель с кнопкой настроек и номером запуска (всегда видима)
         self.create_settings_header_panel()
         
         # Создаем сворачиваемую панель настроек
         self.create_collapsible_settings_panel()
         
-        # Создаем контейнер для содержимого, которое будет скрываться
+        # Создаем контейнер для содержимого, который будет скрываться/показываться
         self.hideable_content_container = ttk.Frame(self.app.root)
-        self.hideable_content_container.pack(fill=tk.BOTH, expand=True)
         
-        # Строка статуса и прогресса
-        self.create_status_panel(self.hideable_content_container)
+        # Создаем внутренний фрейм для уменьшения отступов
+        self.content_inner_frame = ttk.Frame(self.hideable_content_container)
+        self.content_inner_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
         
-        # Прогресс бар
-        self.create_progress_bar(self.hideable_content_container)
+        # Добавляем все элементы, которые должны скрываться/показываться вместе
+        self.create_status_panel(self.content_inner_frame)
+        self.create_progress_bar(self.content_inner_frame)
+        self.create_results_table(self.content_inner_frame)
         
-        # Таблица результатов
-        self.create_results_table(self.hideable_content_container)
+        # Создаем нижнюю панель с информацией о разработчике и датой (всегда видима)
+        self.create_bottom_info_panel()
         
-        # Нижняя панель с информацией и кнопкой открытия отчета
-        self.create_bottom_panel()
+        # По умолчанию настройки развернуты, а содержимое скрыто
+        self.settings_expanded.set(True)
+        self.update_content_visibility()
         
         # Привязываем обработчик событий ко всему дереву один раз
         self.app.results_tree.bind('<Double-1>', self.app.on_item_double_click)
@@ -50,6 +61,33 @@ class UIBuilder:
         # Настраиваем обработку изменения размера окна
         self.app.root.bind("<Configure>", self.on_window_resize)
     
+    def update_content_visibility(self):
+        """Обновляет видимость панелей в зависимости от состояния настроек"""
+        if self.settings_expanded.get():
+            # Настройки развернуты - показываем настройки и скрываем контент
+            self.settings_container.pack(fill=tk.X, pady=5)
+            self.hideable_content_container.pack_forget()
+            self.toggle_button.config(text=f"{self.expand_arrow} Настройки")
+        else:
+            # Настройки свернуты - скрываем настройки и показываем контент
+            self.settings_container.pack_forget()
+            self.hideable_content_container.pack(fill=tk.BOTH, expand=True, pady=0)  # Убираем вертикальные отступы
+            self.toggle_button.config(text=f"{self.collapse_arrow} Настройки")
+
+    def create_bottom_info_panel(self):
+        """Создает нижнюю панель с информацией о разработчике и датой"""
+        bottom_info_frame = ttk.Frame(self.app.root, padding="5")
+        bottom_info_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        
+        # Приписка о разработчике слева
+        ttk.Label(bottom_info_frame, text="@Собственная разработка ИТРА", 
+                font=("", 8, "italic"), foreground="#666666").pack(side=tk.LEFT, padx=10)
+        
+        # Текущие дата и время справа
+        current_datetime = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+        ttk.Label(bottom_info_frame, text=f"Текущие дата и время: {current_datetime}", 
+                font=("", 8, "italic"), foreground="#666666").pack(side=tk.RIGHT, padx=10)
+
     def create_top_panel(self):
         """Создает верхнюю панель с выбором пути и кнопкой запуска"""
         top_frame = ttk.Frame(self.app.root, padding="10")
@@ -116,18 +154,12 @@ class UIBuilder:
     
     def toggle_settings_panel(self):
         """Переключает отображение панели настроек и контента"""
-        if self.settings_expanded.get():
-            # Сворачиваем панель настроек и скрываем контент
-            self.settings_container.pack_forget()
-            self.hideable_content_container.pack_forget()
-            self.toggle_button.config(text=f"{self.collapse_arrow} Настройки")
-            self.settings_expanded.set(False)
-        else:
-            # Разворачиваем панель настроек и показываем контент
-            self.settings_container.pack(fill=tk.X, pady=5)
-            self.hideable_content_container.pack(fill=tk.BOTH, expand=True)
-            self.toggle_button.config(text=f"{self.expand_arrow} Настройки")
-            self.settings_expanded.set(True)
+        # Инвертируем значение флага
+        self.settings_expanded.set(not self.settings_expanded.get())
+        
+        # Обновляем видимость содержимого в зависимости от нового состояния
+        self.update_content_visibility()
+
     
     def create_options_panel(self, parent_frame=None):
         """
@@ -340,24 +372,12 @@ class UIBuilder:
         self.app.results_tree.tag_configure('passed', background='#C8E6C9')  # светло-зеленый
         self.app.results_tree.tag_configure('failed', background='#FFCDD2')  # светло-красный
     
-    def create_bottom_panel(self):
-        """Создает нижнюю панель с информацией"""
-        bottom_frame = ttk.Frame(self.app.root, padding="5")
-        bottom_frame.pack(fill=tk.X)
-        
-        # Кнопка для открытия отчета в отдельном окне
-        view_report_button = ttk.Button(bottom_frame, text="Открыть отчет в отдельном окне", 
-                                       command=self.app.open_report_window)
-        view_report_button.pack(side=tk.LEFT, padx=10)
-        
-        # Текущие дата и время
-        current_datetime = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-        ttk.Label(bottom_frame, text=f"Текущие дата и время: {current_datetime}", 
-                font=("", 8, "italic"), foreground="#666666").pack(side=tk.RIGHT, padx=10)
-        
-        # Приписка о разработчике
-        ttk.Label(bottom_frame, text="@Собственная разработка ИТРА", 
-                font=("", 8, "italic"), foreground="#666666").pack(side=tk.LEFT, padx=10)
+    def create_bottom_panel(self, parent_frame=None):
+        """
+        Этот метод теперь пустой, так как нижняя информационная панель 
+        создается отдельно в create_bottom_info_panel
+        """
+        pass
     
     def on_window_resize(self, event):
         """Обрабатывает изменение размера окна"""
