@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import datetime
 import os
 import sys
 import time
@@ -8,6 +9,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import concurrent.futures
 from queue import Queue
+from tkinter import ttk
 
 # Импортируем модули приложения
 from app.ui.widgets import UIBuilder
@@ -50,6 +52,266 @@ class DocumentChecker:
         
         # Загружаем настройки пользователя
         self.config_manager.load_settings()
+    
+    def open_report_window(self):
+        """
+        Открывает отдельное окно с отчетом о проверенных файлах
+        """
+        # Если нет результатов, сообщаем об этом
+        if not self.results:
+            self.show_info("Отчет", "Нет данных для отображения в отчете.")
+            return
+        
+        # Создаем новое окно
+        report_window = tk.Toplevel(self.root)
+        report_window.title("Отчет о проверке документов")
+        report_window.geometry("900x600")
+        report_window.minsize(800, 500)
+        
+        # Добавляем информационную панель вверху окна
+        info_frame = ttk.Frame(report_window, padding="10")
+        info_frame.pack(fill=tk.X)
+        
+        # Добавляем информацию о времени проверки
+        current_datetime = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+        ttk.Label(info_frame, text=f"Отчет о проверке документов | Дата отчета: {current_datetime}").pack(side=tk.LEFT)
+        
+        # Добавляем статистику по проверке
+        stats_frame = ttk.Frame(report_window, padding="10")
+        stats_frame.pack(fill=tk.X)
+        
+        # Подсчет статистики
+        total_files = len(self.results)
+        passed_files = sum(1 for result in self.results if result['result'] == "Пройден")
+        failed_files = sum(1 for result in self.results if result['result'] == "Не пройден")
+        error_files = sum(1 for result in self.results if result['result'] in ["Ошибка", "Пропущен"])
+        
+        # Отображение статистики
+        stats_text = f"Всего файлов: {total_files} | Пройдено: {passed_files} | Не пройдено: {failed_files} | С ошибками: {error_files}"
+        ttk.Label(stats_frame, text=stats_text, font=("", 10, "bold")).pack(side=tk.LEFT)
+        
+        # Добавляем таблицу результатов
+        tree_frame = ttk.Frame(report_window, padding="10")
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Создаем таблицу с теми же колонками, что и в основном окне
+        columns = ("№", "Имя файла", "Тип файла", "Путь к файлу", "Результат", "Комментарий")
+        results_tree = ttk.Treeview(tree_frame, columns=columns, show='headings')
+        
+        # Настройка заголовков
+        for col in columns:
+            results_tree.heading(col, text=col)
+        
+        # Настройка ширины колонок
+        results_tree.column("№", width=40, anchor=tk.CENTER)
+        results_tree.column("Имя файла", width=150)
+        results_tree.column("Тип файла", width=80, anchor=tk.CENTER)
+        results_tree.column("Путь к файлу", width=200)
+        results_tree.column("Результат", width=100, anchor=tk.CENTER)
+        results_tree.column("Комментарий", width=300)
+        
+        # Добавление полосы прокрутки
+        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=results_tree.yview)
+        results_tree.configure(yscroll=scrollbar.set)
+        
+        # Размещение таблицы и полосы прокрутки
+        results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Установка тегов для цветной маркировки
+        results_tree.tag_configure('passed', background='#C8E6C9')  # светло-зеленый
+        results_tree.tag_configure('failed', background='#FFCDD2')  # светло-красный
+        
+        # Заполняем таблицу данными из результатов
+        for idx, result in enumerate(self.results, 1):
+            # Определение тега для строки (цвета)
+            tag = 'passed' if result['result'] == "Пройден" else 'failed'
+            
+            # Вставка строки в таблицу
+            results_tree.insert(
+                '', 'end',
+                values=(
+                    idx,
+                    result['file_name'],
+                    result['file_type'],
+                    result['file_path'],
+                    result['result'],
+                    result['comment']
+                ),
+                tags=(tag,)
+            )
+        
+        # Добавляем панель с кнопками внизу
+        button_frame = ttk.Frame(report_window, padding="10")
+        button_frame.pack(fill=tk.X)
+        
+        # Кнопка для сохранения отчета в Excel
+        save_button = ttk.Button(button_frame, text="Сохранить отчет в Excel", 
+                            command=lambda: self.report_manager.save_results_to_excel(self.results))
+        save_button.pack(side=tk.LEFT, padx=10)
+        
+        # Кнопка для закрытия окна
+        close_button = ttk.Button(button_frame, text="Закрыть", command=report_window.destroy)
+        close_button.pack(side=tk.RIGHT, padx=10)
+        
+        # Добавляем контекстное меню для таблицы
+        self.setup_report_context_menu(report_window, results_tree)
+        
+        # Центрируем окно на экране
+        report_window.update_idletasks()
+        width = report_window.winfo_width()
+        height = report_window.winfo_height()
+        x = (report_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (report_window.winfo_screenheight() // 2) - (height // 2)
+        report_window.geometry(f'{width}x{height}+{x}+{y}')
+        
+        # Делаем окно модальным (блокирует основное окно, пока не закроется)
+        report_window.transient(self.root)
+        report_window.grab_set()
+        
+        # Добавляем обработку изменения размера окна
+        def on_report_window_resize(event):
+            if event.widget == report_window:
+                # Подгоняем ширину столбцов таблицы под текущий размер окна
+                window_width = event.width
+                
+                # Подгоняем ширину последнего столбца (комментария) под оставшееся пространство
+                fixed_columns_width = 40 + 150 + 80 + 200 + 100  # Сумма фиксированных ширин первых 5 столбцов
+                scrollbar_width = 20  # Примерная ширина полосы прокрутки
+                padding = 40  # Дополнительные отступы
+                
+                # Вычисляем доступную ширину для последнего столбца
+                available_width = max(200, window_width - fixed_columns_width - scrollbar_width - padding)
+                
+                # Устанавливаем новую ширину для столбца с комментариями
+                results_tree.column("Комментарий", width=available_width)
+        
+        # Привязываем обработчик изменения размера окна
+        report_window.bind("<Configure>", on_report_window_resize)
+        
+        # Привязываем обработчик двойного клика для открытия файла
+        results_tree.bind('<Double-1>', lambda event: self.open_file_from_tree(event, results_tree))
+        
+        # Отображаем окно и ждем его закрытия
+        self.root.wait_window(report_window)
+    
+    def setup_report_context_menu(self, parent_window, tree_widget):
+        """
+        Настраивает контекстное меню для таблицы результатов в отдельном окне отчета
+        
+        Args:
+            parent_window: Родительское окно (Toplevel)
+            tree_widget: Виджет Treeview для отображения результатов
+        """
+        context_menu = tk.Menu(parent_window, tearoff=0)
+        context_menu.add_command(label="Открыть файл", 
+                            command=lambda: self.open_file_from_tree_selection(tree_widget))
+        context_menu.add_command(label="Открыть директорию файла", 
+                            command=lambda: self.open_directory_from_tree_selection(tree_widget))
+        context_menu.add_separator()
+        context_menu.add_command(label="Копировать путь", 
+                            command=lambda: self.copy_path_from_tree_selection(tree_widget))
+        
+        # Привязываем контекстное меню к правому клику
+        tree_widget.bind("<Button-3>", lambda event: self.show_report_context_menu(event, tree_widget, context_menu))
+
+    def show_report_context_menu(self, event, tree_widget, context_menu):
+        """
+        Показывает контекстное меню при правом клике в окне отчета
+        
+        Args:
+            event: Событие клика
+            tree_widget: Виджет Treeview
+            context_menu: Контекстное меню
+        """
+        item = tree_widget.identify_row(event.y)
+        if item:
+            # Выделяем строку под курсором
+            tree_widget.selection_set(item)
+            # Показываем контекстное меню
+            context_menu.post(event.x_root, event.y_root)
+
+    def open_file_from_tree(self, event, tree_widget):
+        """
+        Обрабатывает двойной клик по элементу таблицы в окне отчета
+        
+        Args:
+            event: Событие клика
+            tree_widget: Виджет Treeview
+        """
+        # Получаем идентификатор выбранного элемента
+        item_id = tree_widget.identify('item', event.x, event.y)
+        if not item_id:
+            return
+        
+        # Получаем значения для выбранного элемента
+        values = tree_widget.item(item_id, 'values')
+        if not values or len(values) < 4:
+            return
+        
+        # Путь к файлу находится в 4-м столбце (индекс 3)
+        file_path = values[3]
+        if file_path:
+            # Проверяем, существует ли файл перед попыткой открытия
+            if os.path.exists(file_path):
+                success, error = open_file(file_path)
+                if not success:
+                    self.show_warning("Предупреждение", error)
+            else:
+                self.show_warning("Предупреждение", f"Файл не найден:\n{file_path}")
+
+    def open_file_from_tree_selection(self, tree_widget):
+        """
+        Открывает выбранный файл из контекстного меню в окне отчета
+        
+        Args:
+            tree_widget: Виджет Treeview
+        """
+        selection = tree_widget.selection()
+        if selection:
+            values = tree_widget.item(selection[0], 'values')
+            file_path = values[3]  # Путь к файлу в 4-м столбце
+            if file_path and os.path.exists(file_path):
+                success, error = open_file(file_path)
+                if not success:
+                    self.show_warning("Предупреждение", error)
+            else:
+                self.show_warning("Предупреждение", f"Файл не найден:\n{file_path}")
+
+    def open_directory_from_tree_selection(self, tree_widget):
+        """
+        Открывает директорию, содержащую выбранный файл в окне отчета
+        
+        Args:
+            tree_widget: Виджет Treeview
+        """
+        selection = tree_widget.selection()
+        if selection:
+            values = tree_widget.item(selection[0], 'values')
+            file_path = values[3]  # Путь к файлу в 4-м столбце
+            if file_path:
+                directory = os.path.dirname(file_path)
+                if os.path.exists(directory):
+                    success, error = open_directory(directory)
+                    if not success:
+                        self.show_error("Ошибка", error)
+                else:
+                    self.show_warning("Предупреждение", f"Директория не найдена:\n{directory}")
+
+    def copy_path_from_tree_selection(self, tree_widget):
+        """
+        Копирует путь к файлу в буфер обмена из окна отчета
+        
+        Args:
+            tree_widget: Виджет Treeview
+        """
+        selection = tree_widget.selection()
+        if selection:
+            values = tree_widget.item(selection[0], 'values')
+            file_path = values[3]  # Путь к файлу в 4-м столбце
+            if file_path:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(file_path)
     
     def init_variables(self):
         """Инициализирует переменные приложения"""
