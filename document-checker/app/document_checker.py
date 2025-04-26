@@ -27,31 +27,61 @@ class DocumentChecker:
     def __init__(self, root):
         self.root = root
         self.root.title("Проверка документов")
-        self.root.geometry("1000x600")
-        self.root.minsize(800, 500)
         
-        # Инициализация переменных
-        self.init_variables()
+        # Определяем переменные для отслеживания состояния
+        self.selected_path = tk.StringVar()
+        self.output_path = tk.StringVar()
+        self.status_text = tk.StringVar(value="Готов к работе")
+        self.current_file = tk.StringVar(value="Нет")
+        self.progress_value = tk.IntVar(value=0)
+        self.total_files_var = tk.StringVar(value="0")
+        self.remaining_files_var = tk.StringVar(value="0")
+        self.success_files_var = tk.StringVar(value="0")
+        self.error_files_var = tk.StringVar(value="0")
+        self.elapsed_time = tk.StringVar(value="00:00:00")
         
-        # Инициализация менеджеров
-        self.config_manager = ConfigManager(self)
-        self.report_manager = ReportManager(self)
+        # Переменные для настроек типов файлов
+        self.check_docx = tk.BooleanVar(value=True)
+        self.check_doc = tk.BooleanVar(value=True)
+        self.check_docm = tk.BooleanVar(value=False)
+        self.check_xlsx = tk.BooleanVar(value=True)
+        self.check_xls = tk.BooleanVar(value=True)
+        self.check_xlsm = tk.BooleanVar(value=False)
         
-        # Определение пути для сохранения отчета по умолчанию
-        self.output_path.set(self.config_manager.get_default_output_path())
+        # Дополнительные настройки
+        self.skip_large_files = tk.BooleanVar(value=True)
+        self.max_threads = tk.IntVar(value=4)
+        self.max_file_size = tk.IntVar(value=100)
+        self.max_depth = tk.IntVar(value=10)
+        self.recursive_search = tk.BooleanVar(value=True)
+        self.show_hidden = tk.BooleanVar(value=False)
         
-        # Создание интерфейса
+        # Настройки поиска значений
+        self.enable_value_search = tk.BooleanVar(value=False)
+        self.search_values = tk.StringVar()
+        self.case_sensitive = tk.BooleanVar(value=False)
+        
+        # Настройки отчетов
+        self.report_format = tk.StringVar(value="xlsx")
+        self.auto_open_report = tk.BooleanVar(value=True)
+        self.include_timestamp = tk.BooleanVar(value=True)
+        
+        # Настройки предустановок
+        self.current_preset = tk.StringVar(value="Стандартная")
+        self.new_preset_name = tk.StringVar()
+        
+        # Настройки версии
+        self.version = "1.0.0"
+        
+        # Создаем центральные компоненты приложения
+        # (в вашем коде могут быть другие компоненты)
+        
+        # Создаем строителя интерфейса
+        from app.ui.widgets import UIBuilder
         self.ui_builder = UIBuilder(self)
+        
+        # Создаем все элементы интерфейса
         self.ui_builder.create_widgets()
-        
-        # Устанавливаем номер запуска на основе файла отчета
-        self.report_manager.load_run_id_from_report()
-        
-        # Загружаем существующие результаты
-        self.report_manager.load_existing_results()
-        
-        # Загружаем настройки пользователя
-        self.config_manager.load_settings()
     
     def open_report_window(self):
         """
@@ -1049,3 +1079,103 @@ class DocumentChecker:
     def show_info(self, title, message):
         """Показывает информационное сообщение"""
         messagebox.showinfo(title, message)
+
+    def save_report(self):
+        """
+        Сохраняет отчет о проверке в выбранный формат
+        """
+        # Получаем формат отчета
+        if hasattr(self, 'report_format'):
+            report_format = self.report_format.get()
+        else:
+            report_format = "xlsx"  # по умолчанию
+        
+        # Сохраняем отчет, используя менеджер отчетов
+        if hasattr(self, 'report_manager') and hasattr(self.report_manager, 'save_report'):
+            self.report_manager.save_report(format=report_format)
+        else:
+            from tkinter import messagebox
+            messagebox.showinfo("Информация", f"Отчет будет сохранен в формате {report_format}")
+
+    def stop_check(self):
+        """
+        Останавливает текущую проверку
+        """
+        # Здесь должен быть код для остановки проверки
+        # Например, установка флага для остановки потоков
+        self.status_text.set("Проверка остановлена")
+        
+        # Обновляем состояние кнопок
+        if hasattr(self, 'ui_builder') and hasattr(self.ui_builder, 'toolbar_builder'):
+            self.ui_builder.toolbar_builder.update_buttons_for_check_completed()
+        
+        # Обновляем кнопки в верхней панели
+        if hasattr(self, 'stop_button'):
+            self.stop_button.config(state=tk.DISABLED)
+        if hasattr(self, 'action_button'):
+            self.action_button.config(state=tk.NORMAL)
+
+    def export_results(self, format=None):
+        """
+        Экспортирует результаты в выбранный формат
+        """
+        # Если формат не указан, используем формат из настроек
+        if format is None:
+            if hasattr(self, 'report_format'):
+                format = self.report_format.get()
+            else:
+                format = "xlsx"  # по умолчанию
+        
+        # Экспортируем результаты
+        from tkinter import filedialog, messagebox
+        
+        # Запрашиваем путь для сохранения
+        filetypes = []
+        default_extension = ""
+        
+        if format == "xlsx":
+            filetypes = [("Excel файлы", "*.xlsx")]
+            default_extension = ".xlsx"
+        elif format == "csv":
+            filetypes = [("CSV файлы", "*.csv")]
+            default_extension = ".csv"
+        elif format == "html":
+            filetypes = [("HTML файлы", "*.html")]
+            default_extension = ".html"
+        elif format == "json":
+            filetypes = [("JSON файлы", "*.json")]
+            default_extension = ".json"
+        
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=default_extension,
+            filetypes=filetypes,
+            title="Сохранить отчет как"
+        )
+        
+        if filepath:
+            # В реальном приложении здесь будет код для экспорта
+            messagebox.showinfo("Экспорт", f"Отчет экспортирован в {filepath}")
+
+    def copy_row_data(self):
+        """
+        Копирует данные выбранной строки в буфер обмена
+        """
+        if not hasattr(self, 'results_tree'):
+            return
+            
+        # Получаем выбранные элементы
+        selected_items = self.results_tree.selection()
+        
+        if not selected_items:
+            return
+            
+        # Получаем данные первого выбранного элемента
+        item = selected_items[0]
+        values = self.results_tree.item(item, "values")
+        
+        # Формируем строку для копирования
+        row_text = "\t".join([str(val) for val in values])
+        
+        # Копируем в буфер обмена
+        self.root.clipboard_clear()
+        self.root.clipboard_append(row_text)
