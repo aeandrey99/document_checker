@@ -177,79 +177,50 @@ class SettingsPageBuilder:
             font=FONT_SMALL_ITALIC,
             foreground=TEXT_HINT
         ).pack(pady=10)
-        
+
     def _create_search_values_tab(self, parent):
         """
         Создает содержимое вкладки с настройками поиска значений
         """
-        # Включение/выключение поиска
-        enable_frame = ttk.Frame(parent)
-        enable_frame.pack(fill=tk.X, pady=5)
+        # Рамка с настройками поиска
+        search_frame = ttk.LabelFrame(parent, text="Настройки поиска значений", padding=10)
+        search_frame.pack(fill=tk.X, pady=5)
         
-        enable_search = ttk.Checkbutton(
-            enable_frame, 
-            text="Выполнять поиск значений в документах", 
+        # Чекбокс для включения поиска
+        enable_search_check = ttk.Checkbutton(
+            search_frame,
+            text="Включить поиск значений в документах",
             variable=self.app.enable_value_search
         )
-        enable_search.pack(anchor=tk.W)
-        create_tooltip(enable_search, "Включает дополнительный поиск заданных значений в проверяемых документах")
+        enable_search_check.pack(anchor=tk.W, pady=3)
+        create_tooltip(enable_search_check, "Включает поиск указанных значений в содержимом документов")
         
-        # Рамка для ввода значений
-        values_frame = ttk.LabelFrame(parent, text="Значения для поиска", padding=10)
-        values_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        # Поле для ввода значений поиска
+        search_values_frame = ttk.Frame(search_frame)
+        search_values_frame.pack(fill=tk.X, pady=5)
         
-        # Поле для ввода значений
-        ttk.Label(
-            values_frame, 
-            text="Введите значения для поиска в формате, указанном ниже:"
-        ).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(search_values_frame, text="Значения для поиска (через запятую):").pack(anchor=tk.W)
         
-        # Создаем рамку для текстового поля и скроллбара
-        text_frame = ttk.Frame(values_frame)
-        text_frame.pack(fill=tk.BOTH, expand=True)
+        search_entry = ttk.Entry(search_values_frame, textvariable=self.app.search_values, width=50)
+        search_entry.pack(fill=tk.X, pady=2)
+        create_tooltip(search_entry, "Введите значения для поиска, разделенные запятыми, например: 2024, Предоставлено, Утверждено")
         
-        # Скроллбар для текстового поля
-        scrollbar = ttk.Scrollbar(text_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Текстовое поле для ввода значений
-        text_widget = tk.Text(
-            text_frame, 
-            height=5,
-            wrap=tk.WORD,
-            yscrollcommand=scrollbar.set
+        # Чекбокс для учета регистра
+        case_sensitive_check = ttk.Checkbutton(
+            search_frame,
+            text="Учитывать регистр при поиске",
+            variable=self.app.case_sensitive
         )
-        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=text_widget.yview)
+        case_sensitive_check.pack(anchor=tk.W, pady=3)
+        create_tooltip(case_sensitive_check, "Если включено, поиск будет чувствителен к регистру символов")
         
-        # Привязываем текстовое поле к переменной
-        def update_search_values(event=None):
-            self.app.search_values.set(text_widget.get("1.0", tk.END).strip())
-        
-        text_widget.bind("<KeyRelease>", update_search_values)
-        
-        # Заполняем текстовое поле текущими значениями
-        if hasattr(self.app, 'search_values') and self.app.search_values.get():
-            text_widget.insert("1.0", self.app.search_values.get())
-        
-        # Информационная панель с инструкциями
-        info_frame = ttk.Frame(values_frame, style="Info.TFrame", padding=10)
-        info_frame.pack(fill=tk.X, pady=10)
-        
-        instructions = (
-            "• Укажите значения для поиска в формате: \"2024\", \"Привет_\", \"Предоставлено \"\n"
-            "• Значения должны быть заключены в двойные кавычки и разделены запятыми\n"
-            "• Пробелы и другие символы учитываются в поиске\n"
-            "• Для поиска по части слова используйте символ подчеркивания (_)"
-        )
-        
+        # Информационная подсказка
         ttk.Label(
-            info_frame, 
-            text=instructions,
+            search_frame,
+            text="Примечание: Поиск значений может замедлить процесс проверки.",
             font=FONT_SMALL_ITALIC,
-            foreground=TEXT_HINT,
-            justify=tk.LEFT
-        ).pack(anchor=tk.W)
+            foreground=TEXT_HINT
+        ).pack(anchor=tk.W, pady=10)
         
     def _create_output_tab(self, parent):
         """
@@ -285,7 +256,7 @@ class SettingsPageBuilder:
         include_time_check = ttk.Checkbutton(
             format_frame, 
             text="Включать время в имя файла отчета", 
-            variable=self.app.include_time_in_filename
+            variable=self.app.include_timestamp
         )
         include_time_check.pack(anchor=tk.W, pady=3)
         create_tooltip(include_time_check, "Добавляет время создания в имя файла отчета")

@@ -28,7 +28,7 @@ class DocumentChecker:
         self.root = root
         self.root.title("Проверка документов")
         
-        # Определяем переменные для отслеживания состояния
+        # Initialize variables
         self.selected_path = tk.StringVar()
         self.output_path = tk.StringVar()
         self.status_text = tk.StringVar(value="Готов к работе")
@@ -40,7 +40,7 @@ class DocumentChecker:
         self.error_files_var = tk.StringVar(value="0")
         self.elapsed_time = tk.StringVar(value="00:00:00")
         
-        # Переменные для настроек типов файлов
+        # File type settings
         self.check_docx = tk.BooleanVar(value=True)
         self.check_doc = tk.BooleanVar(value=True)
         self.check_docm = tk.BooleanVar(value=False)
@@ -48,7 +48,7 @@ class DocumentChecker:
         self.check_xls = tk.BooleanVar(value=True)
         self.check_xlsm = tk.BooleanVar(value=False)
         
-        # Дополнительные настройки
+        # Additional settings
         self.skip_large_files = tk.BooleanVar(value=True)
         self.max_threads = tk.IntVar(value=4)
         self.max_file_size = tk.IntVar(value=100)
@@ -56,31 +56,30 @@ class DocumentChecker:
         self.recursive_search = tk.BooleanVar(value=True)
         self.show_hidden = tk.BooleanVar(value=False)
         
-        # Настройки поиска значений
+        # Search settings
         self.enable_value_search = tk.BooleanVar(value=False)
         self.search_values = tk.StringVar()
         self.case_sensitive = tk.BooleanVar(value=False)
         
-        # Настройки отчетов
+        # Report settings
         self.report_format = tk.StringVar(value="xlsx")
         self.auto_open_report = tk.BooleanVar(value=True)
         self.include_timestamp = tk.BooleanVar(value=True)
         
-        # Настройки предустановок
+        # Preset settings
         self.current_preset = tk.StringVar(value="Стандартная")
         self.new_preset_name = tk.StringVar()
         
-        # Настройки версии
+        # Version
         self.version = "1.0.0"
         
-        # Создаем центральные компоненты приложения
-        # (в вашем коде могут быть другие компоненты)
+        # Initialize ReportManager before UI
+        from app.core.report_manager import ReportManager
+        self.report_manager = ReportManager(self)
         
-        # Создаем строителя интерфейса
+        # Create UI builder and widgets
         from app.ui.widgets import UIBuilder
         self.ui_builder = UIBuilder(self)
-        
-        # Создаем все элементы интерфейса
         self.ui_builder.create_widgets()
     
     def open_report_window(self):
@@ -590,6 +589,24 @@ class DocumentChecker:
             else:
                 self.show_warning("Предупреждение", f"Файл не найден:\n{file_path}")
     
+    def copy_file_result(self):
+        """
+        Копирует данные выбранной строки из таблицы результатов в буфер обмена
+        """
+        selected_item = self.results_tree.selection()
+        if not selected_item:
+            return  # Ничего не выбрано
+
+        # Получаем данные строки
+        values = self.results_tree.item(selected_item, 'values')
+        if values:
+            # Формируем строку для копирования (например, все поля через табуляцию)
+            result_text = "\t".join(str(value) for value in values)
+            # Копируем в буфер обмена
+            self.root.clipboard_clear()
+            self.root.clipboard_append(result_text)
+            self.set_status("Результат скопирован в буфер обмена")
+
     def start_check(self):
         """Запускает процесс проверки документов"""
         # Если проверка уже идет, просто возвращаемся

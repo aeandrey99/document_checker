@@ -4,11 +4,11 @@ import tkinter as tk
 from tkinter import ttk
 
 from ..theme import apply_theme, configure_tags
-from ..widgets.components.navigation import NavigationManager
-from ..widgets.pages.settings_page import SettingsPageBuilder
-from ..widgets.pages.status_page import StatusPageBuilder
-from ..widgets.common.panels import PanelsBuilder
-from ..widgets.common.utils import UIUtils
+from .components.navigation import NavigationManager
+from .pages.settings_page import SettingsPageBuilder
+from .pages.status_page import StatusPageBuilder
+from .common.panels import PanelsBuilder
+from .common.utils import UIUtils
 
 class UIBuilder:
     """

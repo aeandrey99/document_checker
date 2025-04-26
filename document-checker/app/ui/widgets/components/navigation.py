@@ -3,7 +3,7 @@
 import tkinter as tk
 from tkinter import ttk
 from ...theme import FONT_SMALL_BOLD
-from common.tooltips import create_tooltip
+from ..common.tooltips import create_tooltip
 
 class NavigationManager:
     """

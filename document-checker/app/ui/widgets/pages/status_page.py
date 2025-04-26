@@ -126,6 +126,13 @@ class StatusPageBuilder:
             foreground=TEXT_HINT
         ).pack(side=tk.RIGHT)
     
+    def _update_progress_percent(self, *args):
+        """
+        Обновляет отображение процента выполнения на основе значения прогресс-бара
+        """
+        progress = self.app.progress_value.get()
+        self.percent_var.set(f"{int(progress)}%")
+
     def create_filters_panel(self, parent_frame=None):
         """
         Создает панель с фильтрами для таблицы результатов
@@ -184,6 +191,59 @@ class StatusPageBuilder:
         
         # Привязываем событие нажатия Enter в поле поиска
         search_entry.bind("<Return>", lambda e: self._apply_filter())
+
+    def _apply_filter(self):
+        """
+        Применяет фильтры и поиск к таблице результатов
+        """
+        # Получаем текущие значения фильтра и поиска
+        filter_type = self.filter_var.get()
+        search_text = self.search_var.get().lower().strip()
+
+        # Очищаем таблицу
+        for item in self.app.results_tree.get_children():
+            self.app.results_tree.delete(item)
+
+        # Фильтруем результаты
+        filtered_results = []
+        for result in self.app.results:
+            # Фильтрация по типу результата
+            if filter_type == "all":
+                matches_filter = True
+            elif filter_type == "passed":
+                matches_filter = result['result'] == "Пройден"
+            elif filter_type == "failed":
+                matches_filter = result['result'] in ["Не пройден", "Ошибка", "Пропущен"]
+            else:
+                matches_filter = True
+
+            # Фильтрация по строке поиска
+            matches_search = True
+            if search_text:
+                matches_search = (
+                    search_text in result['file_name'].lower() or
+                    search_text in result['file_path'].lower() or
+                    search_text in result['comment'].lower()
+                )
+
+            if matches_filter and matches_search:
+                filtered_results.append(result)
+
+        # Заполняем таблицу отфильтрованными результатами
+        for idx, result in enumerate(filtered_results, 1):
+            tag = 'passed' if result['result'] == "Пройден" else 'failed'
+            self.app.results_tree.insert(
+                '', 'end',
+                values=(
+                    idx,
+                    result['file_name'],
+                    result['file_type'],
+                    result['file_path'],
+                    result['result'],
+                    result['comment']
+                ),
+                tags=(tag,)
+            )
 
     def create_results_table(self, parent_frame=None):
         """
@@ -251,131 +311,3 @@ class StatusPageBuilder:
             foreground=TEXT_HINT
         )
         tip_label.pack(pady=(5, 10), anchor=tk.W, padx=10)
-    
-    def _sort_column(self, column):
-        """
-        Сортирует таблицу по указанному столбцу
-        """
-        # Получаем текущие данные
-        data = []
-        for item_id in self.app.results_tree.get_children(''):
-            values = self.app.results_tree.item(item_id, 'values')
-            # Сохраняем значения и ID для последующей сортировки
-            data.append((values, item_id))
-        
-        # Определяем порядок сортировки
-        if column not in self.sort_order:
-            self.sort_order[column] = False  # По умолчанию - по возрастанию
-        else:
-            self.sort_order[column] = not self.sort_order[column]  # Инвертируем порядок
-        
-        # Определяем индекс столбца
-        column_idx = list(self.app.results_tree['columns']).index(column)
-        
-        # Функция для определения ключа сортировки
-        def get_sort_key(item):
-            value = item[0][column_idx]
-            # Если это номер, преобразуем в число
-            if column == "№":
-                try:
-                    return int(value)
-                except (ValueError, TypeError):
-                    return 0
-            return value
-        
-        # Сортируем данные
-        data.sort(key=get_sort_key, reverse=self.sort_order[column])
-        
-        # Обновляем отображение
-        for idx, (values, item_id) in enumerate(data):
-            # Задаем теги для чередования строк
-            tag = 'odd' if idx % 2 else ''
-            result_tag = ''
-            
-            # Определяем тег результата
-            for val in values:
-                if val == 'OK' or val == 'Успешно':
-                    result_tag = 'passed'
-                    break
-                elif val == 'Ошибка' or val == 'Не найдено':
-                    result_tag = 'failed'
-                    break
-            
-            # Устанавливаем теги и обновляем позицию
-            self.app.results_tree.item(item_id, tags=(tag, result_tag) if tag and result_tag else (tag or result_tag))
-            self.app.results_tree.move(item_id, '', idx)
-        
-        # Обновляем заголовок колонки, чтобы показать направление сортировки
-        for col in self.app.results_tree['columns']:
-            if col == column:
-                indicator = " ↑" if not self.sort_order[column] else " ↓"
-                self.app.results_tree.heading(col, text=f"{col}{indicator}")
-            else:
-                # Убираем индикатор с других колонок
-                self.app.results_tree.heading(col, text=col.split(" ")[0])
-    
-    def _apply_filter(self):
-        """
-        Применяет выбранный фильтр к таблице результатов
-        """
-        # Получаем значения фильтров
-        filter_type = self.filter_var.get()
-        search_text = self.search_var.get().lower().strip()
-        
-        # Проходим по всем элементам и скрываем/показываем их в зависимости от фильтров
-        for item_id in self.app.results_tree.get_children(''):
-            # Получаем данные элемента
-            values = self.app.results_tree.item(item_id, 'values')
-            tags = self.app.results_tree.item(item_id, 'tags')
-            
-            # Проверяем соответствие фильтру по результату
-            if filter_type == 'all' or (filter_type == 'passed' and 'passed' in tags) or (filter_type == 'failed' and 'failed' in tags):
-                # Если фильтр по результату прошел, проверяем поиск по тексту
-                if not search_text or any(search_text in str(v).lower() for v in values):
-                    # Элемент проходит все фильтры, показываем его
-                    self.app.results_tree.item(item_id, open=True)
-                    self.app.results_tree.detach(item_id)  # Сначала отсоединяем
-                    self.app.results_tree.reattach(item_id, '', 'end')  # Затем прикрепляем обратно
-                else:
-                    # Не проходит фильтр по тексту, скрываем
-                    self.app.results_tree.detach(item_id)
-            else:
-                # Не проходит фильтр по результату, скрываем
-                self.app.results_tree.detach(item_id)
-    
-    def _update_progress_percent(self, *args):
-        """
-        Обновляет отображение процента выполнения
-        """
-        total = self.app.total_files_var.get()
-        if total > 0:
-            progress = self.app.progress_value.get()
-            percent = min(100, int((progress / 100.0) * 100))
-            self.percent_var.set(f"{percent}%")
-            
-            # Обновляем цвет индикатора статуса в зависимости от прогресса
-            if 0 < progress < 100:
-                self.status_indicator.configure(foreground=SUCCESS)
-            elif progress == 100:
-                self.status_indicator.configure(foreground=SUCCESS)
-            else:
-                self.status_indicator.configure(foreground=ERROR)
-        else:
-            self.percent_var.set("0%")
-    
-    def update_status_indicator(self, status):
-        """
-        Обновляет индикатор статуса в зависимости от текущего состояния
-        
-        Параметры:
-            status: Строка с текущим статусом
-        """
-        if status.lower() == "ошибка" or "ошибка" in status.lower():
-            self.status_indicator.configure(foreground=ERROR)
-        elif status.lower() == "готово" or "завершено" in status.lower():
-            self.status_indicator.configure(foreground=SUCCESS)
-        elif "выполняется" in status.lower() or "проверка" in status.lower():
-            self.status_indicator.configure(foreground=SUCCESS)
-        else:
-            # Сбрасываем на дефолтный цвет
-            self.status_indicator.configure(foreground="")

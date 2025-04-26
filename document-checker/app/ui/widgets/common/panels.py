@@ -118,7 +118,7 @@ class PanelsBuilder:
         Создает статусную строку, которая показывает контекстную информацию
         """
         status_bar = ttk.Frame(self.app.root)
-        status_bar.pack(fill=tk.X, side=tk.BOTTOM, before=self.app.root.winfo_children()[-1])
+        status_bar.pack(fill=tk.X, side=tk.BOTTOM)  # Removed 'before' option
         
         # Левая часть - системные сообщения
         self.status_label = ttk.Label(
