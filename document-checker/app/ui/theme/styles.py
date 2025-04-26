@@ -25,11 +25,12 @@ def apply_theme(root):
     style.configure("TButton", 
                     font=FONT_NORMAL,
                     background=PRIMARY,
-                    foreground="white",
+                    foreground=BUTTON_TEXT,  # Используем белый текст для кнопок
                     padding=5)
     
     style.map("TButton", 
               background=[("active", BUTTON_HOVER), ("pressed", PRIMARY_DARK)],
+              foreground=[("active", BUTTON_TEXT), ("pressed", BUTTON_TEXT)],  # Белый текст во всех состояниях
               relief=[("pressed", "sunken")])
     
     # Стили для фреймов
@@ -116,11 +117,13 @@ def apply_theme(root):
     # Создаем стиль для иконочных кнопок
     style.configure("Icon.TButton", 
                     font=FONT_NORMAL,
-                    padding=3)
+                    padding=3,
+                    background=PRIMARY,
+                    foreground=BUTTON_TEXT)  # Белый текст для иконочных кнопок
     
     # Стиль для информационной панели
     style.configure("Info.TFrame", 
-                    background="#F8F8F8",
+                    background="#F5F5F5",  # Чуть темнее BACKGROUND для отличия
                     relief="groove",
                     borderwidth=1)
     

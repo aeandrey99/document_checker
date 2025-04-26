@@ -245,6 +245,51 @@ class StatusPageBuilder:
                 tags=(tag,)
             )
 
+    def _sort_column(self, col):
+        """
+        Сортирует таблицу по указанному столбцу, переключая порядок сортировки
+        """
+        # Определяем порядок сортировки для столбца (по умолчанию восходящий)
+        if col not in self.sort_order:
+            self.sort_order[col] = True  # True - восходящий, False - нисходящий
+        else:
+            self.sort_order[col] = not self.sort_order[col]
+
+        # Получаем текущие данные таблицы
+        data = []
+        for item in self.app.results_tree.get_children():
+            values = self.app.results_tree.item(item, 'values')
+            data.append(values)
+
+        # Индекс столбца в данных
+        col_index = {
+            "№": 0,
+            "Имя файла": 1,
+            "Тип файла": 2,
+            "Путь к файлу": 3,
+            "Результат": 4,
+            "Комментарий": 5
+        }[col]
+
+        # Сортируем данные
+        data.sort(
+            key=lambda x: x[col_index].lower() if isinstance(x[col_index], str) else x[col_index],
+            reverse=not self.sort_order[col]
+        )
+
+        # Очищаем таблицу
+        for item in self.app.results_tree.get_children():
+            self.app.results_tree.delete(item)
+
+        # Перезаполняем таблицу отсортированными данными
+        for idx, values in enumerate(data, 1):
+            tag = 'passed' if values[4] == "Пройден" else 'failed'
+            self.app.results_tree.insert(
+                '', 'end',
+                values=(idx, *values[1:]),  # Обновляем номер строки
+                tags=(tag,)
+            )
+
     def create_results_table(self, parent_frame=None):
         """
         Создает таблицу результатов с возможностью сортировки и фильтрации

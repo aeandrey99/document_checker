@@ -1,24 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import datetime
 import os
 import sys
 import time
 import threading
-import tkinter as tk
-from tkinter import filedialog, messagebox
+import datetime
 import concurrent.futures
 from queue import Queue
-from tkinter import ttk
 
-# Импортируем модули приложения
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+
 from app.ui.widgets import UIBuilder
 from app.core.file_utils import normalize_path, get_file_type, is_locked_file, detect_file_size_category, open_file, open_directory
 from app.core.word_checker import check_word_file
 from app.core.excel_checker import check_excel_file
-from app.core.report_manager import ReportManager
 from app.utils.config import ConfigManager
-from app.utils.threading_utils import init_workers_pool
+from app.core.report_manager import ReportManager
 
 class DocumentChecker:
     """
@@ -27,13 +25,24 @@ class DocumentChecker:
     def __init__(self, root):
         self.root = root
         self.root.title("Проверка документов")
+        self.root.geometry("1000x600")
+        self.root.minsize(800, 500)
+        
+        self.config_manager = ConfigManager(app_instance=self)
+
+        self.is_checking = False
+        self.stop_requested = False
+        self.results = []
+        
+        # Инициализация переменных
+        self.init_variables()
         
         # Initialize variables
         self.selected_path = tk.StringVar()
         self.output_path = tk.StringVar()
         self.status_text = tk.StringVar(value="Готов к работе")
         self.current_file = tk.StringVar(value="Нет")
-        self.progress_value = tk.IntVar(value=0)
+        self.progress_value = tk.DoubleVar(value=0)
         self.total_files_var = tk.StringVar(value="0")
         self.remaining_files_var = tk.StringVar(value="0")
         self.success_files_var = tk.StringVar(value="0")
@@ -43,14 +52,14 @@ class DocumentChecker:
         # File type settings
         self.check_docx = tk.BooleanVar(value=True)
         self.check_doc = tk.BooleanVar(value=True)
-        self.check_docm = tk.BooleanVar(value=False)
+        self.check_docm = tk.BooleanVar(value=True)
         self.check_xlsx = tk.BooleanVar(value=True)
         self.check_xls = tk.BooleanVar(value=True)
-        self.check_xlsm = tk.BooleanVar(value=False)
+        self.check_xlsm = tk.BooleanVar(value=True)
         
         # Additional settings
         self.skip_large_files = tk.BooleanVar(value=True)
-        self.max_threads = tk.IntVar(value=4)
+        self.max_threads = tk.IntVar(value=8)
         self.max_file_size = tk.IntVar(value=100)
         self.max_depth = tk.IntVar(value=10)
         self.recursive_search = tk.BooleanVar(value=True)
@@ -58,13 +67,13 @@ class DocumentChecker:
         
         # Search settings
         self.enable_value_search = tk.BooleanVar(value=False)
-        self.search_values = tk.StringVar()
-        self.case_sensitive = tk.BooleanVar(value=False)
+        self.search_values = tk.StringVar(value=2024)
+        self.case_sensitive = tk.BooleanVar(value=True)
         
         # Report settings
         self.report_format = tk.StringVar(value="xlsx")
         self.auto_open_report = tk.BooleanVar(value=True)
-        self.include_timestamp = tk.BooleanVar(value=True)
+        self.include_timestamp = tk.BooleanVar(value=False)
         
         # Preset settings
         self.current_preset = tk.StringVar(value="Стандартная")
@@ -364,7 +373,7 @@ class DocumentChecker:
         self.check_xls = tk.BooleanVar(value=True)
         self.check_xlsm = tk.BooleanVar(value=True)
         
-        # Состояние проверки
+        # ДОБАВЬТЕ ЭТИ СТРОКИ
         self.is_checking = False
         self.stop_requested = False
         
@@ -379,7 +388,7 @@ class DocumentChecker:
         default_threads = min(8, max(1, int(os.cpu_count() * 0.75)) if os.cpu_count() else 4)
         self.max_threads = tk.IntVar(value=default_threads)
         
-        # Результаты проверки
+        # ДОБАВЬТЕ ЭТУ СТРОКУ
         self.results = []
         
         # Переменные для поиска значений в документах
