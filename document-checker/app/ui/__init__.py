@@ -1,7 +1,15 @@
-# Инициализация пакета UI
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .widgets.ui_builder import UIBuilder
+"""
+Пакет пользовательского интерфейса приложения
+"""
 
-__all__ = ['UIBuilder']
+from .widgets import UIBuilder
+from .theme import apply_theme, configure_tags
+
+__all__ = [
+    'UIBuilder',
+    'apply_theme',
+    'configure_tags'
+]
